@@ -1,43 +1,46 @@
-var env = process.env ? process.env : 'development'
-
-
 var express = require('express')
-  , socketio = require('socket.io')
+  , http = require('http')
+  , socketio = require("socket.io")
   , eyes = require('eyes')
-  , _ = require('underscore')
 
+var app = express()
+  , server = http.createServer(app)
+  , io = socketio.listen(server)
 
-var app = express.createServer(express.logger(), express.bodyParser())
-app.use(app.router)
-app.use(express.static(__dirname + '/public'))
-app.listen(8001)
-var io = socketio.listen(app)
+server.listen(3000)
+
+app.configure(function(){
+    app.use(express.methodOverride())
+    app.use(express.bodyParser())
+    app.use(app.router)
+    app.use(express.static(__dirname + '/public'))
+    app.use(express.errorHandler({ dumpExceptions: true, showStack: true }))
+})
 
 
 var sockets = {};
 
-io.sockets.on('connection', function(socket) {
-  sockets[socket.id] = {};
+io.sockets.on('connection', function(client) {
+  sockets[client.id] = {};
 
-  socket.on('', function(data) {
-    
+  // send a message to all users, excluding client
+  // this and the next emit gets called right after the client connects
+  client.broadcast.emit('new_user', { id: client.id })
+
+  // send a message named 'message' to client, with given data
+  client.emit('message', { stuff: 'and then some' })
+
+  // handle a message called 'modify'
+  client.on('modify', function(message) {
+    console.log(eyes.inspect(message))
   })
 
-  socket.on('disconnect', function() {
-    delete sockets[socket.id]
+  // handle users being disconnected
+  client.on('disconnect', function() {
+    // if its a multiuser app (not just using websockets for
+    // real-time updates), its a good idea to notify everyone
+    client.broadcast.emit('remove_user', { id: client.id })
+    delete sockets[client.id]
   })
 })
 
-/**
- * Game Loop
- *
- * The game simulation is run on each client as well as on the server. The 
- * server holds the master game loop, and updates the clients semi-frequently. 
- * The client and server should share this code. The client should include 
- * drawing functions. 
- */
-setInterval(function() {
-
-}, 50)
-
-console.log('Application Started.')
