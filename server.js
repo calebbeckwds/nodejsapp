@@ -40,3 +40,4 @@ setInterval(function() {
 
 }, 50)
 
+console.log('Application Started.')
